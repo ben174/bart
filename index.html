@@ -3,8 +3,28 @@
         <script src="//code.jquery.com/jquery-1.12.0.min.js"></script>
         <script src="//code.jquery.com/jquery-migrate-1.2.1.min.js"></script>
         <script src="bart.js"></script>
+        <style>
+            body {
+                font-family: sans-serif;
+            }
+            #departures {
+                line-height: 24px;
+            }
+            #station {
+                font-weight: bold;
+            }
+            .destStation {
+                font-weight: bold;
+            }
+            .destTimes {
+                margin-left: 10px;
+                font-size: 75%;
+            }
+        </style>
     </head>
     <body>
+        <h1 id="station"></h1>
+        <ul id="departures"></ul>
     </body>
 </html>
 

@@ -52,7 +52,7 @@ var Bart = function() {
                 }
             });
             this.closestStation = closest;
-            console.log(closest.name);
+            $("#station").text(closest.name);
             return closest;
         },
         getClosestStationTimes: function(data) {
@@ -74,6 +74,14 @@ var Bart = function() {
             var times = $(elem).find("estimate > minutes").map(function(i, el) {
                 return $(el).text();
             }).get();
+            var li = $("<li>");
+            var stationSpan = $("<span class=\"destStation\">").text(destination);
+            var timesSpan = $("<span class=\"destTimes\">").text(times.join(', '));
+            $(li).append(stationSpan);
+            $(li).append(timesSpan);
+
+            $("#departures").append(li);
+
             console.log("Destination: " + destination + " - Departure times: " + times.join(', '));
         },
         getDistanceFromLatLonInKm: function(lat1,lon1,lat2,lon2) {
