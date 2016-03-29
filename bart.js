@@ -75,13 +75,15 @@ var Bart = function() {
                 return $(el).text();
             }).get();
             var li = $("<li>");
-            var stationSpan = $("<span class=\"destStation\">").text(destination);
-            var timesSpan = $("<span class=\"destTimes\">").text(times.join(', '));
+            var stationSpan = $("<span>").text(destination);
+            var timesSpan = $("<span>").text(times.join(', '));
             $(li).append(stationSpan);
             $(li).append(timesSpan);
 
             $("#departures").append(li);
 
+            $(stationSpan).addClass("destStation");
+            $(timesSpan).addClass("destTimes");
             console.log("Destination: " + destination + " - Departure times: " + times.join(', '));
         },
         getDistanceFromLatLonInKm: function(lat1,lon1,lat2,lon2) {
