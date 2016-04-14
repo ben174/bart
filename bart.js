@@ -13,6 +13,193 @@ var Util = function() {
     },
     deg2rad: function(deg) {
       return deg * (Math.PI/180)
+    }
+  }
+}();
+
+var Geo = function() {
+  return {
+    location: null,
+    addDistancesToStations: function(stations) {
+      var closest = null;
+      for (var key in stations) {
+        console.log("Adding distance to station: ");
+        console.log(key);
+        var station = Bart.stations[key];
+        station.distance = Util.getDistanceFromLatLonInKm(Geo.location.coords.latitude,
+          Geo.location.coords.longitude,
+          station.lat,
+          station.lon)
+        if(closest === null || station.distance < closest.distance) {
+          closest = station;
+        }
+      }
+      Bart.closestStation = station;
+    },
+    getLocation: function() {
+      return new Promise(function(resolve, reject) {
+        navigator.geolocation.getCurrentPosition(function(pos) {
+          console.log("Got position: " + pos);
+          Geo.location = pos;
+          resolve(pos);
+        });
+      });
+    }
+  }
+}();
+
+var Bart = function(doGeo) {
+  return {
+    //apiKey: 'Q34D-PVTK-9Q6T-DWE9',
+    apiKey: 'MW9S-E7SL-26DU-VV8V',
+    stations: null,
+    location: null,
+    closestStation: null,
+    getStations: function() {
+      return new Promise(function(resolve, reject) {
+        $.ajax({
+          type: "GET",
+          url: "http://api.bart.gov/api/stn.aspx?cmd=stns&key=" + Bart.apiKey,
+          dataType: "xml",
+          success: function(xml) {
+            var stations = {};
+            $(xml).find("station").each(function(i, el) {
+              stations[$(el).find("abbr").text()] = {
+                name: $(el).find("name").text(),
+                abbr: $(el).find("abbr").text(),
+                lat: $(el).find("gtfs_latitude").text(),
+                lon: $(el).find("gtfs_longitude").text(),
+              };
+            });
+            console.log(stations);
+            Bart.stations = stations;
+            resolve(stations);
+          },
+          error: function(err) {
+            console.log(err);
+            reject(err);
+          }
+         });
+      });
+    },
+    getStationTimes: function(stations) {
+      console.log('Getting station times: ' + stations);
+      console.log(stations);
+      promises = Array();
+      $(stations).each(function(i, station) {
+        var promise = new Promise(function(resolve, reject) {
+          var url = "http://api.bart.gov/api/etd.aspx?cmd=etd&orig=" + station.abbr + "&key=" + Bart.apiKey;
+          $.ajax({
+            type: "GET",
+            url: url,
+            dataType: "xml",
+            success: function(xml) {
+              station.platforms = {};
+              $(xml).find("etd").each(function(i, etd) {
+                var destination = $(etd).find("destination").text();
+                var abbr = $(etd).find("abbreviation").text();
+                $(etd).find("estimate").each(function(i, estimate) {
+                  var platform = null;
+                  var platformName = 'platform_' + $(estimate).find("platform").text();
+                  if (station.platforms[platformName] === undefined) {
+                    station.platforms[platformName] = {
+                      'name': $(estimate).find("platform").text(),
+                      'destinations': {}
+                    };
+                  }
+                  platform = station.platforms[platformName];
+                  var minutes = $(estimate).find("minutes").text();
+                  if (minutes == 'Leaving') {
+                    minutes = 0;
+                  }
+                  minutes = parseInt(minutes, 10);
+                  if (platform.destinations[abbr] === undefined) {
+                    platform.destinations[abbr] = {
+                      name: destination,
+                      abbr: abbr,
+                      minutes: Array()
+                    };
+                  }
+                  platform.destinations[abbr].minutes.push(minutes);
+                });
+              });
+              resolve(station);
+            }
+          });
+        });
+        promises.push(promise);
+      });
+      return promises;
+    },
+  }
+}();
+
+var UI = function() {
+  return {
+    doGeo: true,
+    stations: Array(),
+    init: function() {
+      var promises = [Bart.getStations()];
+      if(UI.queryString().s !== undefined) {
+        UI.doGeo == false;
+      } else {
+        UI.doGeo == true;
+        promises.push(Geo.getLocation());
+      }
+      Promise.all(promises).then(function(vals) {
+        if (UI.doGeo) {
+          Geo.addDistancesToStations(Bart.stations);
+          UI.stations.push(Bart.closestStation);
+        }
+        Promise.all(Bart.getStationTimes(UI.stations)).then(function() {
+          UI.render();
+        });
+      });
+    },
+    render: function() {
+      $(UI.stations).each(function(i, el) {
+        UI.drawStation(el);
+      });
+    },
+    /*
+    <div>
+      <h1>station.name</h1>
+      <div class="platform">
+        <h2>platform.name</h2>
+        <ul>
+          <li>destination.name <span>destination.minutes</span>
+         </ul>
+      </div>
+    </div>
+    */
+    drawStation: function(station) {
+      $("#station").text('');
+      $("#departures").empty();
+      console.log("Drawing station");
+      console.log(station);
+      $("#station").text(station.name);
+      for (var platformName in station.platforms) {
+        var platform = station.platforms[platformName];
+        console.log("Platform");
+        console.log(platform);
+        var platformSpan = $("<span>");
+        var platformTitle = $("<div>").addClass("platform-title").text("Platform " + platform.name);
+        $(platformSpan).append(platformTitle);
+        for (var destinationName in platform.destinations) {
+          var destination = platform.destinations[destinationName];
+          var stationSpan = $("<span>").text(destination.name);
+          var ul = $("<ul>");
+          var li = $("<li>");
+          $(li).append(stationSpan);
+          var timesSpan = $("<span>").text(destination.minutes.join(', '));
+          $(li).append(timesSpan);
+          console.log(li);
+          $(platformSpan).append(li);
+          $(stationSpan).addClass("destStation");
+          $(timesSpan).addClass("destTimes");
+        }
+        $("#departures").append(platformSpan);
+      }
     },
     queryString: function() {
       var query_string = {};
@@ -34,130 +221,10 @@ var Util = function() {
       }
       return query_string;
     }
-  }
-}();
-
-var Geo = function() {
-  return {
-    location: null,
-    addDistancesToStations: function(stations) {
-    },
-    getLocation: function() {
-      return new Promise(function(resolve, reject) {
-        navigator.geolocation.getCurrentPosition(function(pos) {
-          console.log("Got position: " + pos);
-          Geo.location = pos;
-          resolve(pos);
-        });
-      });
-    }
-  }
-}();
-
-var Bart = function() {
-  return {
-    stations: null,
-    location: null,
-    closestStation: null,
-    getStations: function() {
-      return new Promise(function(resolve, reject) {
-        $.ajax({
-          type: "GET",
-          url: "http://api.bart.gov/api/stn.aspx?cmd=stns&key=MW9S-E7SL-26DU-VV8V",
-          dataType: "xml",
-          success: function(xml) {
-            var stations = $(xml).find("station").map(function(i, el) {
-              return {
-                name: $(el).find("name").text(),
-                abbr: $(el).find("abbr").text(),
-                lat: $(el).find("gtfs_latitude").text(),
-                lon: $(el).find("gtfs_longitude").text(),
-              }
-            }).get();
-            console.log(stations);
-            Bart.stations = stations;
-            resolve(stations);
-          },
-          error: function(err) {
-            console.log(err);
-            reject(err);
-          }
-         });
-      });
-    },
-    init: function() {
-      Promise.all([Geo.getLocation(), this.getStations()]).then(function(vals) {
-        Geo.addDistancesToStations(Bart.stations);
-        var closestStation = Bart.getClosestStation();
-        Bart.getStationTimes(closestStation).then(function() {
-          console.log("Got stations times.");
-          Bart.drawStation(closestStation);
-        });
-      });
-    },
-    getClosestStation: function() {
-      var closest = null;
-      $(this.stations).each(function(i, el) {
-        el.distance = Util.getDistanceFromLatLonInKm(Geo.location.coords.latitude,
-          Geo.location.coords.longitude,
-          el.lat,
-          el.lon)
-        if(closest === null || el.distance < closest.distance) {
-          closest = el;
-        }
-      });
-      this.closestStation = closest;
-      $("#station").text(closest.name);
-      return closest;
-    },
-    getClosestStationTimes: function(data) {
-      this.getStationTimes(bart.closestStation.abbr);
-    },
-    getStationTimes: function(station) {
-      return new Promise(function(resolve, reject) {
-        var url = "http://api.bart.gov/api/etd.aspx?cmd=etd&orig=" + station.abbr + "&key=MW9S-E7SL-26DU-VV8V";
-        $.ajax({
-          type: "GET",
-          url: url,
-          dataType: "xml",
-          success: function(xml) {
-            station.destinations = [];
-            $(xml).find("etd").each(function(i, el) {
-              station.destinations.push({
-                destination: $(el).find("destination").text(),
-                times: $(el).find("estimate > minutes").map(function(i, el) {
-                  if ($(el).text() == 'Leaving') {
-                    return 0;
-                  } else {
-                    return parseInt($(el).text(), 10);
-                  }
-                }).get()
-              });
-            });
-            resolve(station);
-          }
-        });
-      });
-    },
-    drawStation: function(station) {
-      console.log("Drawing station");
-      console.log(station);
-      $(station.destinations).each(function(i, el) {
-        var li = $("<li>");
-        var stationSpan = $("<span>").text(el.destination);
-        var timesSpan = $("<span>").text(el.times.join(', '));
-        $(li).append(stationSpan);
-        $(li).append(timesSpan);
-        console.log(li);
-        $("#departures").append(li);
-        $(stationSpan).addClass("destStation");
-        $(timesSpan).addClass("destTimes");
-      });
-    }
-  }
+  };
 }();
 
 
 $(function() {
-  Bart.init();
+  UI.init();
 });
