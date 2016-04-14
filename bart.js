@@ -14,7 +14,7 @@ var Util = function() {
     deg2rad: function(deg) {
       return deg * (Math.PI/180)
     }
-  }
+  };
 }();
 
 var Geo = function() {
@@ -34,7 +34,7 @@ var Geo = function() {
           closest = station;
         }
       }
-      Bart.closestStation = station;
+      Bart.closestStation = closest;
     },
     getLocation: function() {
       return new Promise(function(resolve, reject) {
@@ -48,10 +48,9 @@ var Geo = function() {
   }
 }();
 
-var Bart = function(doGeo) {
+var Bart = function() {
   return {
-    //apiKey: 'Q34D-PVTK-9Q6T-DWE9',
-    apiKey: 'MW9S-E7SL-26DU-VV8V',
+    apiKey: 'Q34D-PVTK-9Q6T-DWE9',
     stations: null,
     location: null,
     closestStation: null,
@@ -140,16 +139,16 @@ var UI = function() {
     stations: Array(),
     init: function() {
       var promises = [Bart.getStations()];
-      if(UI.queryString().s !== undefined) {
-        UI.doGeo == false;
-      } else {
-        UI.doGeo == true;
+      if (Options.doGeo) {
         promises.push(Geo.getLocation());
       }
+
       Promise.all(promises).then(function(vals) {
-        if (UI.doGeo) {
+        if (Options.doGeo) {
           Geo.addDistancesToStations(Bart.stations);
           UI.stations.push(Bart.closestStation);
+        } else {
+          UI.stations.push(Bart.stations[Options.station.abbr])
         }
         Promise.all(Bart.getStationTimes(UI.stations)).then(function() {
           UI.render();
@@ -224,7 +223,26 @@ var UI = function() {
   };
 }();
 
+var Options = function() {
+  return {
+    readOptions: function() {
+      if(UI.queryString().s !== undefined) {
+        this.doGeo == false;
+      } else {
+        this.doGeo == true;
+      }
+    },
+    doGeo: true,
+    station: {
+      abbr: 'FRMT',
+      dir: 'North',
+      icon: 'Work',
+      lines: ['GREEN']
+    }
+  };
+}();
 
 $(function() {
+  Options.readOptions();
   UI.init();
 });
