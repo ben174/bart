@@ -116,7 +116,9 @@ var Bart = function() {
                     platform.destinations[abbr] = {
                       name: destination,
                       abbr: abbr,
-                      minutes: Array()
+                      minutes: Array(),
+                      direction: $(estimate).find("direction").text(),
+                      color: $(estimate).find("color").text()
                     };
                   }
                   platform.destinations[abbr].minutes.push(minutes);
@@ -191,6 +193,11 @@ var UI = function() {
           var li = $("<li>");
           $(li).append(stationSpan);
           var timesSpan = $("<span>").text(destination.minutes.join(', '));
+          if (!Options.doGeo) {
+            if (destination.direction != Options.station.direction || Options.station.lines.indexOf(destination.color) == -1) {
+              $(li).addClass("uninterested");
+            }
+          }
           $(li).append(timesSpan);
           console.log(li);
           $(platformSpan).append(li);
@@ -235,7 +242,7 @@ var Options = function() {
     doGeo: true,
     station: {
       abbr: 'FRMT',
-      dir: 'North',
+      direction: 'North',
       icon: 'Work',
       lines: ['GREEN']
     }
