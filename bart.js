@@ -58,7 +58,7 @@ var Bart = function() {
       return new Promise(function(resolve, reject) {
         $.ajax({
           type: "GET",
-          url: "http://api.bart.gov/api/stn.aspx?cmd=stns&key=" + Bart.apiKey,
+          url: "https://api.bart.gov/api/stn.aspx?cmd=stns&key=" + Bart.apiKey,
           dataType: "xml",
           success: function(xml) {
             var stations = {};
@@ -87,7 +87,7 @@ var Bart = function() {
       promises = Array();
       $(stations).each(function(i, station) {
         var promise = new Promise(function(resolve, reject) {
-          var url = "http://api.bart.gov/api/etd.aspx?cmd=etd&orig=" + station.abbr + "&key=" + Bart.apiKey;
+          var url = "https://api.bart.gov/api/etd.aspx?cmd=etd&orig=" + station.abbr + "&key=" + Bart.apiKey;
           $.ajax({
             type: "GET",
             url: url,
